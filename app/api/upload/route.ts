@@ -27,37 +27,72 @@ function extractShopDomain(url: string): string {
   return cleanUrl.split('/')[0]
 }
 
+/**
+ * Helper function to generate product name with prefix
+ * Replaces the first word of the product name with the prefix keyword
+ */
+function generateProductName(originalName: string, prefixKeyword: string): string {
+  if (!prefixKeyword || !prefixKeyword.trim()) {
+    return originalName
+  }
+  const nameArray = originalName.split(' ')
+  nameArray[0] = prefixKeyword.trim()
+  return nameArray.join(' ')
+}
 
-//ORIGINAL PRODUCT YES/NO
+/**
+ * Check if a product exists by title and return the product if found
+ * Handles pagination to check all products
+ * @returns Product object if found, null otherwise
+ */
 async function checkProductExists(
   shopDomain: string,
   adminToken: string,
   productTitle: string
-): Promise<boolean> {
+): Promise<{ id: number; title: string } | null> {
   try {
-    // Search for products by title
-    const apiUrl = `https://${shopDomain}.myshopify.com/admin/api/2024-01/products.json`
-    
-    const response = await fetch(apiUrl, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Shopify-Access-Token': adminToken,
-      },
-    })
+    let page = 1
+    let hasMore = true
+    const limit = 250
 
-    if (!response.ok) {
-      return false
+    while (hasMore) {
+      const apiUrl = `https://${shopDomain}.myshopify.com/admin/api/2024-01/products.json?limit=${limit}&page=${page}`
+      
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Shopify-Access-Token': adminToken,
+        },
+      })
+
+      if (!response.ok) {
+        return null
+      }
+
+      const data = await response.json()
+      const products = data.products || []
+
+      // Check if any product with exact title exists
+      const foundProduct = products.find((p: any) => p.title === productTitle)
+      if (foundProduct) {
+        return { id: foundProduct.id, title: foundProduct.title }
+      }
+
+      // If we got fewer products than the limit, we're done
+      if (products.length < limit) {
+        hasMore = false
+      } else {
+        page++
+        // Add a small delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 200))
+      }
     }
 
-    const data = await response.json()
-
-    console.log('data:>>>>>>>>>>', data)
-    // Check if any product with exact title exists
-    return data.products && data.products.some((p: any) => p.id === productTitle)
+    return null
   } catch (error) {
     console.error(`Error checking if product exists: ${productTitle}`, error)
-    return false
+    return null
   }
 }
 
@@ -124,11 +159,8 @@ async function createShopifyProduct(
 ) {
   const apiUrl = `https://${shopDomain}.myshopify.com/admin/api/2024-01/products.json?limit=5000`
 
-  var name_array = product.name.split(' ');
-  name_array[0] = prefixKeyword;
-  const productName = name_array.join(' ');
-  console.log('productName:>>>>>>>>>>', productName)
-  // const productName = prefixKeyword ? `${prefixKeyword} ${product.name}` : product.name
+  // Use consistent product name generation
+  const productName = generateProductName(product.name, prefixKeyword)
   const productDescription = descriptionPrefixKeyword ? `${descriptionPrefixKeyword} ${product.description}` : product.description
 
   // Process all variants with price multiplier
@@ -515,12 +547,17 @@ export async function POST(request: NextRequest) {
       console.log(`Checking and uploading ${products.length} products...`)
       for (const product of products) {
         try {
-          const productName = prefix ? `${prefix} ${product.name}` : product.name
+          // Use consistent product name generation
+          const productName = generateProductName(product.name, prefix)
           
-          // Check if product already exists
-          const exists = await checkProductExists(shopDomain, adminToken, productName)
-          if (exists) {
-            console.log(`Product "${productName}" already exists, skipping...`)
+          // Check if product already exists (returns product data if found)
+          const existingProduct = await checkProductExists(shopDomain, adminToken, productName)
+          if (existingProduct) {
+            console.log(`Product "${productName}" already exists (ID: ${existingProduct.id}), skipping...`)
+            // Add existing product ID to uploaded list
+            if (!uploadedProducts.includes(existingProduct.id)) {
+              uploadedProducts.push(existingProduct.id)
+            }
             continue
           }
 
@@ -560,38 +597,16 @@ export async function POST(request: NextRequest) {
           console.log(`Checking and uploading ${collection.products.length} products for collection "${collection.name}"...`)
           for (const product of collection.products) {
             try {
-              const productName = prefix ? `${prefix} ${product.name}` : product.name
+              // Use consistent product name generation
+              const productName = generateProductName(product.name, prefix)
               
-              // Check if product already exists
-              const productExists = await checkProductExists(shopDomain, adminToken, productName)
-              if (productExists) {
-                console.log(`Product "${productName}" already exists, skipping...`)
-                // Still need to get the product ID to add to collection
-                // Fetch existing product to get its ID
-                try {
-                  const searchUrl = `https://${shopDomain}.myshopify.com/admin/api/2024-01/products.json?limit=5000`
-                  const searchResponse = await fetch(searchUrl, {
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'X-Shopify-Access-Token': adminToken,
-                    },
-                  })
-                  if (searchResponse.ok) {
-                    const searchData = await searchResponse.json()
-                    if (searchData.products && searchData.products.length > 0) {
-                      const existingProduct = searchData.products.find((p: any) => p.title === productName)
-                      if (existingProduct) {
-                        collectionProductIds.push(existingProduct.id)
-                        if (!uploadedProducts.includes(existingProduct.id)) {
-                          uploadedProducts.push(existingProduct.id)
-                        }
-                        console.log(`Using existing product "${productName}" for collection`)
-                        continue
-                      }
-                    }
-                  }
-                } catch (err) {
-                  console.error(`Error fetching existing product: ${productName}`, err)
+              // Check if product already exists (returns product data if found)
+              const existingProduct = await checkProductExists(shopDomain, adminToken, productName)
+              if (existingProduct) {
+                console.log(`Product "${productName}" already exists (ID: ${existingProduct.id}), using for collection`)
+                collectionProductIds.push(existingProduct.id)
+                if (!uploadedProducts.includes(existingProduct.id)) {
+                  uploadedProducts.push(existingProduct.id)
                 }
                 continue
               }

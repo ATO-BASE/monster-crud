@@ -242,10 +242,13 @@ export default function UploadReadySection() {
       })
 
       // Clear upload ready items after successful upload
+      // Create arrays of IDs first to avoid state mutation during iteration
       if (uploadType === 'products') {
-        uploadReadyProducts.forEach((p) => removeFromUploadReadyProducts(p.id))
+        const productIdsToRemove = uploadReadyProducts.map((p) => p.id)
+        productIdsToRemove.forEach((id) => removeFromUploadReadyProducts(id))
       } else {
-        uploadReadyCollections.forEach((c) => removeFromUploadReadyCollections(c.id))
+        const collectionIdsToRemove = uploadReadyCollections.map((c) => c.id)
+        collectionIdsToRemove.forEach((id) => removeFromUploadReadyCollections(id))
       }
 
       // Wait a bit to show 100% progress

@@ -113,28 +113,6 @@ function extractShopDomain(url: string): string | null {
   }
 }
 
-/**
- * Converts Japanese Yen (JPY) to US Dollars (USD)
- * Uses approximate exchange rate: 1 JPY = 0.0067 USD (or ~150 JPY = 1 USD)
- * @param jpyPrice - Price in Japanese Yen
- * @returns Price in US Dollars
- */
-function convertJPYtoUSD(jpyPrice: number | string): number {
-  const numPrice = typeof jpyPrice === 'string' ? parseFloat(jpyPrice) : jpyPrice
-  
-  if (isNaN(numPrice) || numPrice <= 0) {
-    return 0
-  }
-  
-  // Exchange rate: 1 JPY = 0.0067 USD (approximately 150 JPY = 1 USD)
-  // This rate can be updated based on current market rates
-  const JPY_TO_USD_RATE = 0.0067
-  
-  const usdPrice = numPrice * JPY_TO_USD_RATE
-  
-  // Round to 2 decimal places
-  return Math.round(usdPrice * 100) / 100
-}
 
 // Helper function to fetch with retry logic for rate limiting
 async function fetchWithRetry(
@@ -398,22 +376,18 @@ function transformProduct(shopProduct: ShopifyProduct) {
     ? shopProduct.variants[0]
     : null
 
-  // Convert JPY price to USD
-  const jpyPrice = firstVariant ? parseFloat(firstVariant.price) : 0
-  const price = convertJPYtoUSD(jpyPrice)
+  // Get price from first variant
+  const price = firstVariant ? parseFloat(firstVariant.price) : 0
 
-  // Preserve all variants with JPY to USD conversion
+  // Preserve all variants
   const variants = shopProduct.variants?.map(variant => {
-    const jpyVariantPrice = parseFloat(variant.price) || 0
-    const usdVariantPrice = convertJPYtoUSD(jpyVariantPrice)
-    
-    const jpyComparePrice = variant.compare_at_price ? parseFloat(variant.compare_at_price) : null
-    const usdComparePrice = jpyComparePrice ? convertJPYtoUSD(jpyComparePrice) : null
+    const variantPrice = parseFloat(variant.price) || 0
+    const comparePrice = variant.compare_at_price ? parseFloat(variant.compare_at_price) : null
     
     return {
-      price: usdVariantPrice.toFixed(2), // Convert to string with 2 decimal places
+      price: variantPrice.toFixed(2), // Convert to string with 2 decimal places
       sku: variant.sku || undefined,
-      compare_at_price: usdComparePrice ? usdComparePrice.toFixed(2) : undefined,
+      compare_at_price: comparePrice ? comparePrice.toFixed(2) : undefined,
       option1: variant.option1 || undefined,
       option2: variant.option2 || undefined,
       option3: variant.option3 || undefined,
