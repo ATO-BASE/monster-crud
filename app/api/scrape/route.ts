@@ -394,10 +394,12 @@ function transformProduct(shopProduct: ShopifyProduct) {
       barcode: variant.barcode || undefined,
       weight: variant.weight || undefined,
       weight_unit: variant.weight_unit || undefined,
+      grams: variant.grams || undefined,
       inventory_quantity: variant.inventory_quantity || undefined,
       taxable: variant.taxable || undefined,
       requires_shipping: variant.requires_shipping || undefined,
       image_id: variant.image_id || undefined,
+      position: variant.position || undefined,
     }
   }) || []
 
@@ -415,14 +417,22 @@ function transformProduct(shopProduct: ShopifyProduct) {
     alt: img.alt || undefined,
     position: img.position || undefined,
     variant_ids: img.variant_ids || undefined,
+    width: img.width || undefined,
+    height: img.height || undefined,
   })) || []
 
   return {
     id: `product-${shopProduct.id}`,
     name: shopProduct.title,
-    description: shopProduct.body_html ? shopProduct.body_html.replace(/<[^>]*>/g, '').substring(0, 500) : 'No description available',
+    description: shopProduct.body_html || 'No description available',
     image: firstImage,
     price: price,
+    // Preserve additional Shopify product fields
+    vendor: shopProduct.vendor || undefined,
+    product_type: shopProduct.product_type || undefined,
+    tags: shopProduct.tags || undefined,
+    handle: shopProduct.handle || undefined,
+    published_at: shopProduct.published_at || undefined,
     variants: variants.length > 0 ? variants : undefined,
     options: options.length > 0 ? options : undefined,
     images: images.length > 0 ? images : undefined,

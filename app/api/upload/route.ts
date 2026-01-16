@@ -187,9 +187,11 @@ async function createShopifyProduct(
         if (variant.barcode) variantData.barcode = variant.barcode
         if (variant.weight !== undefined) variantData.weight = variant.weight
         if (variant.weight_unit) variantData.weight_unit = variant.weight_unit
+        if (variant.grams !== undefined) variantData.grams = variant.grams
         if (variant.inventory_quantity !== undefined) variantData.inventory_quantity = variant.inventory_quantity
         if (variant.taxable !== undefined) variantData.taxable = variant.taxable
         if (variant.requires_shipping !== undefined) variantData.requires_shipping = variant.requires_shipping
+        if (variant.position !== undefined) variantData.position = variant.position
 
         return variantData
       })
@@ -210,11 +212,16 @@ async function createShopifyProduct(
 
   // Process all images (use all images if available, otherwise fallback to single image)
   const images = product.images && product.images.length > 0
-    ? product.images.map(img => ({
-        src: img.src,
-        alt: img.alt || undefined,
-        position: img.position || undefined,
-      }))
+    ? product.images.map(img => {
+        const imageData: any = {
+          src: img.src,
+        }
+        if (img.alt) imageData.alt = img.alt
+        if (img.position !== undefined) imageData.position = img.position
+        // Note: width and height are read-only in Shopify API, but we include them if provided
+        // Shopify will set these automatically based on the image
+        return imageData
+      })
     : product.image
     ? [{ src: product.image }]
     : []
@@ -226,6 +233,18 @@ async function createShopifyProduct(
       body_html: productDescription,
     },
   }
+
+  // Add additional Shopify product fields if they exist
+  if (product.vendor) productData.product.vendor = product.vendor
+  if (product.product_type) productData.product.product_type = product.product_type
+  if (product.tags) {
+    // Handle both string and array formats for tags
+    productData.product.tags = Array.isArray(product.tags) 
+      ? product.tags.join(', ') 
+      : product.tags
+  }
+  if (product.handle) productData.product.handle = product.handle
+  if (product.published_at) productData.product.published_at = product.published_at
 
   // Add images (all media images)
   if (images.length > 0) {

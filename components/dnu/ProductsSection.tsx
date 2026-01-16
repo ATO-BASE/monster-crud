@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   Box,
   TextField,
@@ -40,11 +40,19 @@ export default function ProductsSection({ navigateToTab }: ProductsSectionProps)
   // Use scraped products from context, or show empty state
   const displayProducts = products
 
+  // Reset page when search term or sort changes
+  useEffect(() => {
+    setPage(1)
+  }, [searchTerm, sortBy])
+
   const filteredAndSorted = useMemo(() => {
     let filtered = displayProducts.filter(
-      (product) =>
-        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        product.description.toLowerCase().includes(searchTerm.toLowerCase())
+      (product) => {
+        const searchLower = searchTerm.toLowerCase()
+        const nameMatch = product.name?.toLowerCase().includes(searchLower) ?? false
+        const descMatch = (product.description || '').toLowerCase().includes(searchLower)
+        return nameMatch || descMatch
+      }
     )
 
     filtered.sort((a, b) => {

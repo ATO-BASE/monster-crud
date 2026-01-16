@@ -5,6 +5,13 @@ export interface Product {
   image: string
   price: number
   variant?: string
+  // Additional Shopify product fields
+  vendor?: string
+  product_type?: string
+  tags?: string | string[]
+  handle?: string
+  published_at?: string
+  // Variants with all fields
   variants?: Array<{
     price: string
     sku?: string
@@ -15,10 +22,13 @@ export interface Product {
     barcode?: string | null
     weight?: number
     weight_unit?: string
+    grams?: number
     inventory_quantity?: number
     taxable?: boolean
     requires_shipping?: boolean
     image_id?: number | null
+    position?: number
+    available?: boolean
   }>
   options?: Array<{
     name: string
@@ -30,6 +40,8 @@ export interface Product {
     alt?: string | null
     position?: number
     variant_ids?: number[]
+    width?: number
+    height?: number
   }>
 }
 

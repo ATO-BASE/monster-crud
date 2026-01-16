@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   Box,
   TextField,
@@ -53,11 +53,24 @@ export default function CollectionsSection() {
   // Use scraped collections from context
   const displayCollections = collections
 
+  // Reset page when search term or sort changes
+  useEffect(() => {
+    setPage(1)
+  }, [searchTerm, sortBy])
+
+  // Reset collection products page when search term changes
+  useEffect(() => {
+    setCollectionProductsPage(1)
+  }, [collectionSearchTerm])
+
   const filteredAndSorted = useMemo(() => {
     let filtered = displayCollections.filter(
-      (collection) =>
-        collection.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        collection.description.toLowerCase().includes(searchTerm.toLowerCase())
+      (collection) => {
+        const searchLower = searchTerm.toLowerCase()
+        const nameMatch = collection.name?.toLowerCase().includes(searchLower) ?? false
+        const descMatch = (collection.description || '').toLowerCase().includes(searchLower)
+        return nameMatch || descMatch
+      }
     )
 
     filtered.sort((a, b) => {
@@ -96,9 +109,12 @@ export default function CollectionsSection() {
   const filteredCollectionProducts = useMemo(() => {
     if (!selectedCollection) return []
     return selectedCollection.products.filter(
-      (product) =>
-        product.name.toLowerCase().includes(collectionSearchTerm.toLowerCase()) ||
-        product.description.toLowerCase().includes(collectionSearchTerm.toLowerCase())
+      (product) => {
+        const searchLower = collectionSearchTerm.toLowerCase()
+        const nameMatch = product.name?.toLowerCase().includes(searchLower) ?? false
+        const descMatch = (product.description || '').toLowerCase().includes(searchLower)
+        return nameMatch || descMatch
+      }
     )
   }, [selectedCollection, collectionSearchTerm])
 
